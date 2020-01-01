@@ -116,14 +116,14 @@ static void join_network(const IPAddress &me)
     IPAddress mask(255, 0, 0, 0);
 
     while (!WiFi.config(me, gw, mask)) {
-        Serial.println("couldn't configure WiFi client");
+        Serial.println("couldn't configure station");
         delay(1000);
     }
 
     wl_status_t stat;
 
     while ((stat = WiFi.begin(WIFI_SSID, WIFI_PASSWORD)) != WL_CONNECTED) {
-        Serial.printf("couldn't join WiFi network (%d)\r\n", stat);
+        Serial.printf("couldn't start station (%d)\r\n", stat);
         delay(1000);
     }
 
@@ -159,7 +159,7 @@ static void create_network(const IPAddress &me)
 static void set_mode(wifi_mode_t mode)
 {
     while (!WiFi.disconnect(true, true)) {
-        Serial.println("couldn't disconnect WiFi client");
+        Serial.println("couldn't disconnect station");
         delay(1000);
     }
 
@@ -180,15 +180,20 @@ static void print_stats()
 
     if (now - g_last_stats >= STATS_INTERVAL) {
         if (g_is_access_point) {
+            Serial.println("--- AP info ------------------------------");
             Serial.println(WiFi.softAPIP());
             Serial.println(WiFi.softAPBroadcastIP());
-            Serial.println(WiFi.softAPNetworkID());
+            Serial.printf("%d station(s)\r\n", WiFi.softAPgetStationNum());
+        }
+        else {
+            Serial.println("--- Station info -------------------------");
+            Serial.println(WiFi.localIP());
+            Serial.println(WiFi.broadcastIP());
+            Serial.println(WiFi.dnsIP());
         }
 
+        Serial.println("--- Diagnostics --------------------------");
         WiFi.printDiag(Serial);
-
-        int32_t n_clients = WiFi.softAPgetStationNum();
-        Serial.printf("%d WiFi client(s)\r\n", n_clients);
 
         g_last_stats = now;
     }
