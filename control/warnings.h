@@ -1,0 +1,8 @@
+#pragma GCC diagnostic warning "-Wall"
+#pragma GCC diagnostic warning "-Wextra"
+#pragma GCC diagnostic warning "-Wconversion"
+#pragma GCC diagnostic warning "-Wsign-conversion"
+#pragma GCC diagnostic warning "-Wcast-align"
+#pragma GCC diagnostic warning "-Wcast-qual"
+#pragma GCC diagnostic warning "-Wmissing-declarations"
+#pragma GCC diagnostic warning "-Wredundant-decls"
