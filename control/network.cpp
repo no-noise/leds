@@ -184,6 +184,7 @@ static void join_network(const IPAddress &me)
     Serial.println("joining WiFi network");
 
     enter_mode(WIFI_MODE_STA);
+    WiFi.setSleep(false);
 
     IPAddress gw{NETWORK_ID, 0, 0, 0};
     IPAddress mask{255, 0, 0, 0};
