@@ -38,10 +38,12 @@
 
 void panels_initialize()
 {
+    Serial.println("panels_initialize()");
 }
 
 void panels_render_frame(int32_t frame_id)
 {
+    Serial.printf("panels_render_frame(%d)\r\n", frame_id);
 }
 
 // --- Helpers -----------------------------------------------------------------

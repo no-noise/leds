@@ -56,12 +56,14 @@ enum result_t {
 
 #define SCAN_TRIES 3
 
-#define STATS_INTERVAL 5000
+#define STATS_INTERVAL 60000
 
 #define UDP_PORT 1972
 #define TCP_PORT 1972
 
 #define IO_BUFFER_SZ 5000
+
+#define DELAY_LIMIT 1000
 
 // --- Globals -----------------------------------------------------------------
 
@@ -83,6 +85,10 @@ static void open_ports(const IPAddress &me);
 static void enter_mode(wifi_mode_t mode);
 static void print_stats();
 static int32_t handle_udp();
+static int32_t handle_ping(const IPAddress &rem_addr, uint16_t rem_port,
+        int32_t read_sz);
+static int32_t handle_render_frame(const IPAddress &rem_addr, uint16_t rem_port,
+        int32_t read_sz);
 static void handle_tcp();
 
 // --- API ---------------------------------------------------------------------
@@ -111,16 +117,18 @@ void network_initialize()
     g_last_stats = 0;
 
     open_ports(me);
+
+    randomSeed((uint32_t)me[1] ^ (uint32_t)me[2] * (uint32_t)me[3]);
 }
 
 int32_t network_handle_io()
 {
     print_stats();
 
-    int32_t frame_no = handle_udp();
+    int32_t frame_id = handle_udp();
 
-    if (frame_no >= 0) {
-        return frame_no;
+    if (frame_id >= 0) {
+        return frame_id;
     }
 
     handle_tcp();
@@ -307,12 +315,66 @@ static int32_t handle_udp()
             rem_port);
 
     int32_t read_sz = wifi_udp.read(io_buffer, sizeof io_buffer);
-
     assert(read_sz == parse_sz);
 
     hex_dump(io_buffer, (size_t)read_sz);
 
+    switch (io_buffer[0]) {
+    case COMMAND_PING:
+        return handle_ping(rem_addr, rem_port, read_sz);
+
+    case COMMAND_RENDER_FRAME:
+        return handle_render_frame(rem_addr, rem_port, read_sz);
+    }
+
     return -1;
+}
+
+static int32_t handle_ping(const IPAddress &rem_addr, uint16_t rem_port,
+        int32_t read_sz)
+{
+    Serial.println("ping");
+
+    if (read_sz != 2) {
+        Serial.printf("bad ping message size %d\r\n", read_sz);
+        return -1;
+    }
+
+    delayMicroseconds((uint32_t)random(DELAY_LIMIT));
+
+    uint8_t seq_no = io_buffer[1];
+
+    int32_t res = wifi_udp.beginPacket(rem_addr, rem_port);
+    assert(res == 1);
+
+    io_buffer[0] = seq_no;
+    io_buffer[1] = (uint8_t)g_is_access_point;
+
+    size_t len = wifi_udp.write(io_buffer, 2);
+    assert(len == 2);
+
+    res = wifi_udp.endPacket();
+    assert(res == 1);
+
+    return -1;
+}
+
+static int32_t handle_render_frame(const IPAddress &rem_addr, uint16_t rem_port,
+        int32_t read_sz)
+{
+    Serial.println("render frame");
+
+    if (read_sz != 4) {
+        Serial.printf("bad render frame message size %d\r\n", read_sz);
+        return -1;
+    }
+
+    int32_t frame_id = (io_buffer[1] << 16) | (io_buffer[2] << 8) |
+            io_buffer[3];
+
+    Serial.printf("frame #%d\r\n", frame_id);
+
+    return frame_id;
 }
 
 static void handle_tcp()
