@@ -1,4 +1,4 @@
-// control.h
+// shared.cpp
 //
 // Copyright (C) 2020 by the contributors
 //
@@ -17,7 +17,10 @@
 
 // --- Includes ----------------------------------------------------------------
 
+#include <HardwareSerial.h>
+
 #include "warnings.h"
+#include "shared.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -25,25 +28,40 @@
 
 // --- Types -------------------------------------------------------------------
 
-struct pixel_t {
-    uint8_t red;
-    uint8_t green;
-    uint8_t blue;
-};
-
 // --- Constants and macros ----------------------------------------------------
-
-#define MAX_COLUMNS 10
-#define MAX_ROWS 10
-#define MAX_FRAMES 100
 
 // --- Globals -----------------------------------------------------------------
 
-extern int32_t g_n_frames;
-extern int32_t g_n_rows;
-extern int32_t g_n_columns;
-
-extern pixel_t g_frames[MAX_FRAMES][MAX_ROWS][MAX_COLUMNS];
+// --- Helper declarations -----------------------------------------------------
 
 // --- API ---------------------------------------------------------------------
+
+void hex_dump(const void *data, size_t len)
+{
+    const uint8_t *data_8 = (const uint8_t *)data;
+    size_t off, i;
+
+    for (off = 0; off < len; off += 16) {
+        Serial.printf("%05x ", off);
+
+        for (i = 0; i < 16 && off + i < len; ++i) {
+            Serial.printf(" %02x", data_8[off + i]);
+        }
+
+        while (i++ < 16) {
+            Serial.print("   ");
+        }
+
+        Serial.print("  ");
+
+        for (i = 0; i < 16 && off + i < len; ++i) {
+            uint8_t ch = data_8[off + i];
+            Serial.printf("%c", ch >= 32 && ch <= 126 ? ch : '.');
+        }
+
+        Serial.println();
+    }
+}
+
+// --- Helpers -----------------------------------------------------------------
 

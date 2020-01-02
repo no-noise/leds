@@ -22,6 +22,7 @@
 
 #include "warnings.h"
 #include "network.h"
+#include "shared.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -31,6 +32,20 @@
 
 // --- Types -------------------------------------------------------------------
 
+enum command_t {
+    COMMAND_PING,
+    COMMAND_UPLOAD,
+    COMMAND_PREPARE,
+    COMMAND_START,
+    COMMAND_STOP,
+    COMMAND_RENDER_FRAME
+};
+
+enum result_t {
+    RESULT_OK,
+    RESULT_NOT_MASTER
+};
+
 // --- Constants and macros ----------------------------------------------------
 
 #define NETWORK_ID 10
@@ -39,20 +54,36 @@
 #define WIFI_PASSWORD "Amplifix2000"
 #define WIFI_CHANNEL 1
 
+#define SCAN_TRIES 3
+
 #define STATS_INTERVAL 5000
+
+#define UDP_PORT 1972
+#define TCP_PORT 1972
+
+#define IO_BUFFER_SZ 5000
 
 // --- Globals -----------------------------------------------------------------
 
 static bool g_is_access_point;
 static uint32_t g_last_stats;
 
+static WiFiUDP wifi_udp;
+static WiFiServer wifi_tcp;
+
+static uint8_t io_buffer[IO_BUFFER_SZ];
+
 // --- Helper declarations -----------------------------------------------------
 
+static IPAddress build_ip_address();
 static bool find_network();
 static void join_network(const IPAddress &me);
 static void create_network(const IPAddress &me);
-static void set_mode(wifi_mode_t mode);
+static void open_ports(const IPAddress &me);
+static void enter_mode(wifi_mode_t mode);
 static void print_stats();
+static int32_t handle_udp();
+static void handle_tcp();
 
 // --- API ---------------------------------------------------------------------
 
@@ -60,17 +91,10 @@ void network_initialize()
 {
     delay(2000);
 
-    uint8_t mac[6];
-    WiFi.macAddress(mac);
-    Serial.printf("MAC address %02x:%02x:%02x:%02x:%02x:%02x\r\n",
-            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-
-    IPAddress me(NETWORK_ID, mac[3], mac[4], mac[5]);
-    Serial.printf("IP address %d.%d.%d.%d\r\n", me[0], me[1], me[2], me[3]);
-
+    const IPAddress me = build_ip_address();
     int32_t tries;
 
-    for (tries = 5; tries > 0; --tries) {
+    for (tries = SCAN_TRIES; tries > 0; --tries) {
         if (find_network()) {
             break;
         }
@@ -85,16 +109,40 @@ void network_initialize()
     }
 
     g_last_stats = 0;
+
+    open_ports(me);
 }
 
 int32_t network_handle_io()
 {
     print_stats();
 
+    int32_t frame_no = handle_udp();
+
+    if (frame_no >= 0) {
+        return frame_no;
+    }
+
+    handle_tcp();
     return -1;
 }
 
 // --- Helpers -----------------------------------------------------------------
+
+static IPAddress build_ip_address()
+{
+    uint8_t mac[6];
+    WiFi.macAddress(mac);
+
+    Serial.printf("MAC address %02x:%02x:%02x:%02x:%02x:%02x\r\n",
+            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+    IPAddress me{NETWORK_ID, mac[3], mac[4], mac[5]};
+
+    Serial.printf("IP address %d.%d.%d.%d\r\n", me[0], me[1], me[2], me[3]);
+
+    return me;
+}
 
 static bool find_network()
 {
@@ -127,10 +175,10 @@ static void join_network(const IPAddress &me)
 {
     Serial.println("joining WiFi network");
 
-    set_mode(WIFI_MODE_STA);
+    enter_mode(WIFI_MODE_STA);
 
-    IPAddress gw(NETWORK_ID, 0, 0, 0);
-    IPAddress mask(255, 0, 0, 0);
+    IPAddress gw{NETWORK_ID, 0, 0, 0};
+    IPAddress mask{255, 0, 0, 0};
 
     while (!WiFi.config(me, gw, mask)) {
         Serial.println("couldn't configure station");
@@ -151,19 +199,22 @@ static void create_network(const IPAddress &me)
 {
     Serial.println("creating WiFi network");
 
-    set_mode(WIFI_MODE_AP);
+    enter_mode(WIFI_MODE_AP);
 
     while (!WiFi.softAP(WIFI_SSID, WIFI_PASSWORD, WIFI_CHANNEL, 0, 8)) {
         Serial.println("couldn't start access point");
         delay(1000);
     }
 
+#if defined ARDUINO_ARCH_ESP32
+    // Otherwise the ESP32 won't honor softAPConfig().
     while ((WiFi.getStatusBits() & AP_STARTED_BIT) == 0) {
         delay(100);
     }
+#endif
 
-    IPAddress gw(NETWORK_ID, 0, 0, 0);
-    IPAddress mask(255, 0, 0, 0);
+    IPAddress gw{NETWORK_ID, 0, 0, 0};
+    IPAddress mask{255, 0, 0, 0};
 
     while (!WiFi.softAPConfig(me, gw, mask)) {
         Serial.println("couldn't configure access point");
@@ -173,8 +224,32 @@ static void create_network(const IPAddress &me)
     g_is_access_point = true;
 }
 
-static void set_mode(wifi_mode_t mode)
+static void open_ports(const IPAddress &me)
 {
+    Serial.println("opening ports");
+
+    while (wifi_udp.begin(UDP_PORT) != 1) {
+        Serial.println("couldn't open UDP port");
+        delay(1000);
+    }
+
+    while (true) {
+        wifi_tcp.begin(TCP_PORT);
+
+        if (wifi_tcp) {
+            break;
+        }
+
+        Serial.println("couldn't open TCP port");
+        delay(1000);
+    }
+}
+
+static void enter_mode(wifi_mode_t mode)
+{
+    Serial.print("entering mode ");
+    Serial.println(mode);
+
     while (!WiFi.disconnect(true, true)) {
         Serial.println("couldn't disconnect station");
         delay(1000);
@@ -214,4 +289,32 @@ static void print_stats()
 
         g_last_stats = now;
     }
+}
+
+static int32_t handle_udp()
+{
+    int32_t parse_sz = wifi_udp.parsePacket();
+
+    if (parse_sz == 0) {
+        return -1;
+    }
+
+    const IPAddress &rem_addr = wifi_udp.remoteIP();
+    uint16_t rem_port = wifi_udp.remotePort();
+
+    Serial.printf("UDP %d %d.%d.%d.%d:%d\r\n",
+            parse_sz, rem_addr[0], rem_addr[1], rem_addr[2], rem_addr[3],
+            rem_port);
+
+    int32_t read_sz = wifi_udp.read(io_buffer, sizeof io_buffer);
+
+    assert(read_sz == parse_sz);
+
+    hex_dump(io_buffer, (size_t)read_sz);
+
+    return -1;
+}
+
+static void handle_tcp()
+{
 }

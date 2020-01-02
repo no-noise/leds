@@ -1,5 +1,5 @@
-HEADERS :=		control.h network.h panels.h
-SOURCES :=		control.ino network.cpp panels.cpp
+HEADERS :=		control.h network.h panels.h shared.h
+SOURCES :=		control.ino network.cpp panels.cpp shared.cpp
 
 BUILD :=		$(shell pwd)/build
 
