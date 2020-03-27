@@ -1,2 +1,3 @@
-/build
-/control.esp32.esp32.esp32.*
+/build/*
+/compile_commands.json
+/sdkconfig
