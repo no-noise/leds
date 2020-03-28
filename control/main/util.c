@@ -36,7 +36,7 @@
 
 // --- Globals -----------------------------------------------------------------
 
-static int32_t g_freq;
+static int32_t g_freq_mhz;
 
 // --- Helper declarations -----------------------------------------------------
 
@@ -46,7 +46,10 @@ static void output_banner(const esp_chip_info_t *info);
 
 void util_init(void)
 {
-    g_freq = esp_clk_cpu_freq();
+    int32_t freq = esp_clk_cpu_freq();
+
+    g_freq_mhz = freq / 1000000;
+    assert(g_freq_mhz * 1000000 == freq);
 
     esp_chip_info_t info;
     esp_chip_info(&info);
@@ -58,7 +61,7 @@ uint32_t util_ns_to_cycles(uint32_t ns)
 {
     assert(ns <= 1000000);
 
-    return (uint32_t)((uint64_t)ns * (uint64_t)g_freq / (uint64_t)1000000000);
+    return ns * (uint32_t)g_freq_mhz / 1000;
 }
 
 void util_enter_critical(void)
@@ -78,7 +81,6 @@ static void output_banner(const esp_chip_info_t *info)
     const char *model = info->model == CHIP_ESP32 ? "esp32" : "esp32-s2";
     int32_t revision = info->revision;
     int32_t n_cores = info->cores;
-    int32_t freq_mhz = g_freq / 1000000;
 
     const char *flash_type = (info->features & CHIP_FEATURE_EMB_FLASH) == 0 ?
             "ext" : "int";
@@ -87,5 +89,6 @@ static void output_banner(const esp_chip_info_t *info)
     size_t heap_sz = esp_get_free_heap_size();
 
     printf("%s rev %d cores %d freq %d flash-%s %zu heap %zu\n",
-            model, revision, n_cores, freq_mhz, flash_type, flash_sz, heap_sz);
+            model, revision, n_cores, g_freq_mhz, flash_type, flash_sz,
+            heap_sz);
 }
