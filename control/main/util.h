@@ -36,7 +36,9 @@ void util_enter_critical(void);
 // Enable interrupts on the current core.
 void util_leave_critical(void);
 
-// Busy-wait for the given number of nanoseconds. Uses the CPU cycle counter.
-// Interrupts must be disabled - i.e., util_enter_critical() must have been
-// called - before calling this.
-void util_delay_in_critical(uint32_t ns);
+// Convert the given number of nanoseconds to CPU cycles.
+uint32_t util_ns_to_cycles(uint32_t ns);
+
+// Busy-wait for the given number of CPU cycles. Interrupts must be disabled -
+// i.e., util_enter_critical() must have been called - before calling this.
+void util_delay_in_critical(uint32_t cycles);

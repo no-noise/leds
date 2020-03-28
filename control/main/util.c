@@ -76,13 +76,17 @@ void util_leave_critical(void)
     g_crit[xPortGetCoreID()] = false;
 }
 
-void util_delay_in_critical(uint32_t ns)
+uint32_t util_ns_to_cycles(uint32_t ns)
 {
     assert(ns <= 1000000);
+
+    return (uint32_t)((uint64_t)ns * (uint64_t)g_freq / (uint64_t)1000000000);
+}
+
+void util_delay_in_critical(uint32_t cycles)
+{
     assert(g_crit[xPortGetCoreID()]); // this core's interrupts must be disabled
 
-    uint32_t cycles = (uint32_t)
-            ((uint64_t)ns * (uint64_t)g_freq / (uint64_t)1000000000);
     uint32_t start = xthal_get_ccount();
 
     while (xthal_get_ccount() - start < cycles) { // handles wrap-arounds
@@ -97,7 +101,7 @@ static void output_banner(const esp_chip_info_t *info)
     const char *model = info->model == CHIP_ESP32 ? "esp32" : "esp32-s2";
     int32_t revision = info->revision;
     int32_t n_cores = info->cores;
-    int32_t freq_mhz = g_freq / 1000 / 1000;
+    int32_t freq_mhz = g_freq / 1000000;
 
     const char *flash_type = (info->features & CHIP_FEATURE_EMB_FLASH) == 0 ?
             "ext" : "int";
