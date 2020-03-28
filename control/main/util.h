@@ -18,6 +18,7 @@
 // --- Includes ----------------------------------------------------------------
 
 #include <stdint.h>
+#include <xtensa/core-macros.h>
 
 // --- Types -------------------------------------------------------------------
 
@@ -30,15 +31,26 @@
 // Initialize.
 void util_init(void);
 
+// Get current CPU cycle count.
+static inline uint32_t util_cycle_count(void)
+{
+    return (uint32_t)XTHAL_GET_CCOUNT();
+}
+
+// Convert the given number of nanoseconds to CPU cycles.
+uint32_t util_ns_to_cycles(uint32_t ns);
+
 // Disable interrupts on the current core.
 void util_enter_critical(void);
 
 // Enable interrupts on the current core.
 void util_leave_critical(void);
 
-// Convert the given number of nanoseconds to CPU cycles.
-uint32_t util_ns_to_cycles(uint32_t ns);
-
 // Busy-wait for the given number of CPU cycles. Interrupts must be disabled -
 // i.e., util_enter_critical() must have been called - before calling this.
-void util_delay_in_critical(uint32_t cycles);
+static inline void util_delay_in_critical(uint32_t start, uint32_t cycles)
+{
+    while ((uint32_t)XTHAL_GET_CCOUNT() - start < cycles) {
+        // do nothing
+    }
+}

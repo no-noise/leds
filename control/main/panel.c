@@ -69,16 +69,19 @@ void panel_test_pattern(int32_t gpio_no)
         util_enter_critical();
 
         // Level 1 for 1 microsecond.
+        uint32_t start = util_cycle_count();
         gpio_set_level(gpio_no, 1);
-        util_delay_in_critical(cycles_1000);
+        util_delay_in_critical(start, cycles_1000);
 
         // Level 0 for 2 microseconds.
+        start = util_cycle_count();
         gpio_set_level(gpio_no, 0);
-        util_delay_in_critical(cycles_2000);
+        util_delay_in_critical(start, cycles_2000);
 
         // Level 1 for 3 microseconds.
+        start = util_cycle_count();
         gpio_set_level(gpio_no, 1);
-        util_delay_in_critical(cycles_3000);
+        util_delay_in_critical(start, cycles_3000);
 
         // Level 0.
         gpio_set_level(gpio_no, 0);

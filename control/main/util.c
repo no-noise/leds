@@ -27,7 +27,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <xtensa/hal.h>
 
 #include <warnings.h>
 
@@ -35,12 +34,9 @@
 
 // --- Constants and macros ----------------------------------------------------
 
-#define N_CORES 8
-
 // --- Globals -----------------------------------------------------------------
 
 static int32_t g_freq;
-static bool g_crit[N_CORES];
 
 // --- Helper declarations -----------------------------------------------------
 
@@ -52,28 +48,10 @@ void util_init(void)
 {
     g_freq = esp_clk_cpu_freq();
 
-    for (int32_t i = 0; i < N_CORES; ++i) {
-        g_crit[i] = false;
-    }
-
     esp_chip_info_t info;
     esp_chip_info(&info);
 
-    assert(info.cores <= N_CORES);
-
     output_banner(&info);
-}
-
-void util_enter_critical(void)
-{
-    portDISABLE_INTERRUPTS();
-    g_crit[xPortGetCoreID()] = true;
-}
-
-void util_leave_critical(void)
-{
-    portENABLE_INTERRUPTS();
-    g_crit[xPortGetCoreID()] = false;
 }
 
 uint32_t util_ns_to_cycles(uint32_t ns)
@@ -83,15 +61,14 @@ uint32_t util_ns_to_cycles(uint32_t ns)
     return (uint32_t)((uint64_t)ns * (uint64_t)g_freq / (uint64_t)1000000000);
 }
 
-void util_delay_in_critical(uint32_t cycles)
+void util_enter_critical(void)
 {
-    assert(g_crit[xPortGetCoreID()]); // this core's interrupts must be disabled
+    portDISABLE_INTERRUPTS();
+}
 
-    uint32_t start = xthal_get_ccount();
-
-    while (xthal_get_ccount() - start < cycles) { // handles wrap-arounds
-        // do nothing
-    }
+void util_leave_critical(void)
+{
+    portENABLE_INTERRUPTS();
 }
 
 // --- Helpers -----------------------------------------------------------------
