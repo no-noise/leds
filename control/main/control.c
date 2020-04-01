@@ -27,7 +27,8 @@
 
 // --- Constants and macros ----------------------------------------------------
 
-#define GPIO_NO 4
+#define GPIO_NO_1 4
+#define GPIO_NO_2 5
 
 // --- Globals -----------------------------------------------------------------
 
@@ -45,7 +46,7 @@ void app_main(void)
     util_init();
     panel_init();
 
-    panel_test_pattern(GPIO_NO);
+    panel_test_pattern(GPIO_NO_1, GPIO_NO_2);
 }
 
 #pragma GCC diagnostic pop
