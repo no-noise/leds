@@ -48,6 +48,7 @@
 
 // --- Helper declarations -----------------------------------------------------
 
+static void write_data(const void *data, size_t sz);
 static volatile uint8_t *get_dma_buffer(void);
 static void v_memcpy(volatile void *to, const void *from, size_t sz);
 static void v_memset(volatile void *to, uint8_t val, size_t sz);
@@ -111,57 +112,61 @@ void panel_test_pattern(uint32_t gpio_no_1, uint32_t gpio_no_2)
     // Create 1 ms's worth of output (= 10000 samples). Make gpio_no_1 flip
     // every 100 ns, gpio_no_2 every 200 ns.
 
-    static uint16_t data[SAMPLE_RATE / 1000];
+    static uint16_t samples[SAMPLE_RATE / 1000];
 
     for (int32_t i = 0; i < SAMPLE_RATE / 1000; ++i) {
-        data[i] = (uint16_t)(i & 3);
+        samples[i] = (uint16_t)(i & 3);
     }
 
     while (true) {
         printf("%d\n", iter++);
 
-        // Copy data to DMA buffers as they become available. Pad data with
-        // silence to make its length a multiple of DMA_BUF_SZ.
-
-        uint8_t *walker = (uint8_t *)data;
-        size_t remain_sz = sizeof data;
-
-        while (true) {
-            // Wait for a DMA buffer to become available.
-            volatile uint8_t *buf = get_dma_buffer();
-
-            if (remain_sz > DMA_BUF_SZ) {
-                // Fill DMA buffer with data.
-                v_memcpy(buf, walker, DMA_BUF_SZ);
-
-                walker += DMA_BUF_SZ;
-                remain_sz -= DMA_BUF_SZ;
-            }
-            else {
-                // Fill DMA buffer with data.
-                v_memcpy(buf, walker, remain_sz);
-                // Pad DMA buffer with silence.
-                v_memset(buf + remain_sz, 0, DMA_BUF_SZ - remain_sz);
-                break;
-            }
-        }
-
-        // Done with copying data. Now fill DMA buffers with silence as they
-        // become available.
-
-        for (int32_t i = 0; i < N_DMA_BUFS; ++i) {
-            // Wait for a DMA buffer to become available.
-            volatile uint8_t *buf = get_dma_buffer();
-
-            // Fill it with silence.
-            v_memset(buf, 0, DMA_BUF_SZ);
-        }
+        write_data(samples, sizeof samples);
 
         vTaskDelay(ticks_pause);
     }
 }
 
 // --- Helpers -----------------------------------------------------------------
+
+static void write_data(const void *data, size_t sz)
+{
+    // Copy data to DMA buffers as they become available. Pad data with
+    // silence to make its length a multiple of DMA_BUF_SZ.
+
+    const uint8_t *data_8 = data;
+
+    while (true) {
+        // Wait for a DMA buffer to become available.
+        volatile uint8_t *buf = get_dma_buffer();
+
+        if (sz > DMA_BUF_SZ) {
+            // Fill DMA buffer with samples.
+            v_memcpy(buf, data_8, DMA_BUF_SZ);
+
+            data_8 += DMA_BUF_SZ;
+            sz -= DMA_BUF_SZ;
+        }
+        else {
+            // Fill DMA buffer with samples.
+            v_memcpy(buf, data_8, sz);
+            // Pad DMA buffer with silence.
+            v_memset(buf + sz, 0, DMA_BUF_SZ - sz);
+            break;
+        }
+    }
+
+    // Done with copying samples. Now fill DMA buffers with silence as they
+    // become available.
+
+    for (int32_t i = 0; i < N_DMA_BUFS; ++i) {
+        // Wait for a DMA buffer to become available.
+        volatile uint8_t *buf = get_dma_buffer();
+
+        // Fill it with silence.
+        v_memset(buf, 0, DMA_BUF_SZ);
+    }
+}
 
 static volatile uint8_t *get_dma_buffer(void)
 {
