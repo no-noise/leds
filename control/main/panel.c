@@ -123,6 +123,7 @@ void panel_test_pattern(uint32_t gpio_no_1, uint32_t gpio_no_2)
 
         // Workaround for broken tx_desc_auto_clear: fill all DMA buffers with
         // silence.
+
         i2s_write(0, silence, sizeof silence, &written, 100);
         assert(written == sizeof silence);
 
