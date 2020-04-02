@@ -23,6 +23,7 @@
 #include <driver/gpio.h>
 #include <driver/i2s.h>
 #include <esp32/rom/gpio.h>
+#include <esp32/rom/lldesc.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <soc/gpio_sig_map.h>
@@ -36,8 +37,9 @@
 // --- Types and constants -----------------------------------------------------
 
 #define N_DMA_BUFS 2
-#define DMA_BUF_LEN 1024
 #define N_CHANNELS 2
+#define DMA_BUF_LEN 1024
+#define DMA_BUF_SZ (DMA_BUF_LEN * N_CHANNELS * sizeof (uint16_t))
 #define SAMPLE_RATE 10000000
 
 // --- Macros and inline functions ---------------------------------------------
@@ -45,6 +47,10 @@
 // --- Globals -----------------------------------------------------------------
 
 // --- Helper declarations -----------------------------------------------------
+
+static volatile uint8_t *get_dma_buffer(void);
+static void v_memcpy(volatile void *to, const void *from, size_t sz);
+static void v_memset(volatile void *to, uint8_t val, size_t sz);
 
 // --- API ---------------------------------------------------------------------
 
@@ -111,24 +117,89 @@ void panel_test_pattern(uint32_t gpio_no_1, uint32_t gpio_no_2)
         data[i] = (uint16_t)(i & 3);
     }
 
-    // Enough silence to fill all DMA buffers.
-    static uint16_t silence[N_DMA_BUFS * DMA_BUF_LEN * N_CHANNELS] = { 0 };
-
     while (true) {
         printf("%d\n", iter++);
 
-        size_t written;
-        i2s_write(0, data, sizeof data, &written, 100);
-        assert(written == sizeof data);
+        // Copy data to DMA buffers as they become available. Pad data with
+        // silence to make its length a multiple of DMA_BUF_SZ.
 
-        // Workaround for broken tx_desc_auto_clear: fill all DMA buffers with
-        // silence.
+        uint8_t *walker = (uint8_t *)data;
+        size_t remain_sz = sizeof data;
 
-        i2s_write(0, silence, sizeof silence, &written, 100);
-        assert(written == sizeof silence);
+        while (true) {
+            // Wait for a DMA buffer to become available.
+            volatile uint8_t *buf = get_dma_buffer();
+
+            if (remain_sz > DMA_BUF_SZ) {
+                // Fill DMA buffer with data.
+                v_memcpy(buf, walker, DMA_BUF_SZ);
+
+                walker += DMA_BUF_SZ;
+                remain_sz -= DMA_BUF_SZ;
+            }
+            else {
+                // Fill DMA buffer with data.
+                v_memcpy(buf, walker, remain_sz);
+                // Pad DMA buffer with silence.
+                v_memset(buf + remain_sz, 0, DMA_BUF_SZ - remain_sz);
+                break;
+            }
+        }
+
+        // Done with copying data. Now fill DMA buffers with silence as they
+        // become available.
+
+        for (int32_t i = 0; i < N_DMA_BUFS; ++i) {
+            // Wait for a DMA buffer to become available.
+            volatile uint8_t *buf = get_dma_buffer();
+
+            // Fill it with silence.
+            v_memset(buf, 0, DMA_BUF_SZ);
+        }
 
         vTaskDelay(ticks_pause);
     }
 }
 
 // --- Helpers -----------------------------------------------------------------
+
+static volatile uint8_t *get_dma_buffer(void)
+{
+    lldesc_t *prev_desc = (lldesc_t *)I2S0.out_eof_des_addr;
+    lldesc_t *desc;
+
+    // Wait for the next DMA buffer to finish.
+
+    do {
+        desc = (lldesc_t *)I2S0.out_eof_des_addr;
+    } while (desc == prev_desc);
+
+    // Return the DMA buffer that just finished.
+    return desc->buf;
+}
+
+static void v_memcpy(volatile void *to, const void *from, size_t sz)
+{
+    assert((sz & 3) == 0);
+
+    volatile uint32_t *to_32 = to;
+    volatile uint32_t *end_32 = to_32 + (sz >> 2);
+
+    const uint32_t *from_32 = from;
+
+    while (to_32 < end_32) {
+        *to_32++ = *from_32++;
+    }
+}
+
+static void v_memset(volatile void *to, uint8_t val, size_t sz)
+{
+    assert((sz & 3) == 0);
+
+    volatile uint32_t *to_32 = to;
+    volatile uint32_t *end_32 = to_32 + (sz >> 2);
+
+    while (to_32 < end_32) {
+        *to_32++ = val;
+    }
+}
