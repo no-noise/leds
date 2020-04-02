@@ -106,9 +106,6 @@ void panel_test_pattern(uint32_t gpio_no_1, uint32_t gpio_no_2)
     // Write directly to I2S_CONF2_REG to enable LCD mode.
     I2S0.conf2.lcd_en = 1;
 
-    uint32_t ticks_pause = 1000 / portTICK_PERIOD_MS;
-    uint32_t iter = 0;
-
     // Create 1 ms's worth of output (= 10000 samples). Make gpio_no_1 flip
     // every 100 ns, gpio_no_2 every 200 ns.
 
@@ -117,6 +114,11 @@ void panel_test_pattern(uint32_t gpio_no_1, uint32_t gpio_no_2)
     for (int32_t i = 0; i < SAMPLE_RATE / 1000; ++i) {
         samples[i] = (uint16_t)(i & 3);
     }
+
+    // Output the samples once per second.
+
+    uint32_t ticks_pause = 1000 / portTICK_PERIOD_MS;
+    uint32_t iter = 0;
 
     while (true) {
         printf("%d\n", iter++);
