@@ -90,7 +90,7 @@ void panel_test_pattern(uint32_t gpio_no_1, uint32_t gpio_no_2)
         .dma_buf_count = N_DMA_BUFS,
         .dma_buf_len = DMA_BUF_LEN,
         .use_apll = false,
-        .tx_desc_auto_clear = false, // broken - see workaround below.
+        .tx_desc_auto_clear = false,
         .fixed_mclk = 0
     };
 
@@ -131,6 +131,8 @@ void panel_test_pattern(uint32_t gpio_no_1, uint32_t gpio_no_2)
 
 static void write_data(const void *data, size_t sz)
 {
+    assert((sz & 3) == 0);
+
     // Copy data to DMA buffers as they become available. Pad data with
     // silence to make its length a multiple of DMA_BUF_SZ.
 
