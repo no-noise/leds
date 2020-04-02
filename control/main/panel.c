@@ -37,6 +37,7 @@
 
 #define N_DMA_BUFS 2
 #define DMA_BUF_LEN 1024
+#define N_CHANNELS 2
 #define SAMPLE_RATE 10000000
 
 // --- Macros and inline functions ---------------------------------------------
@@ -110,8 +111,8 @@ void panel_test_pattern(uint32_t gpio_no_1, uint32_t gpio_no_2)
         data[i] = (uint16_t)(i & 3);
     }
 
-    // Enough to fill all DMA buffers: # buffers * # samples * # channels.
-    static uint16_t silence[N_DMA_BUFS * DMA_BUF_LEN * 2] = { 0 };
+    // Enough silence to fill all DMA buffers.
+    static uint16_t silence[N_DMA_BUFS * DMA_BUF_LEN * N_CHANNELS] = { 0 };
 
     while (true) {
         printf("%d\n", iter++);
