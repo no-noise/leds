@@ -82,7 +82,7 @@ void panel_test_pattern(uint32_t gpio_no_1, uint32_t gpio_no_2)
         .dma_buf_count = N_DMA_BUFS,
         .dma_buf_len = DMA_BUF_LEN,
         .use_apll = false,
-        .tx_desc_auto_clear = true,
+        .tx_desc_auto_clear = false, // broken - see workaround below.
         .fixed_mclk = 0
     };
 
@@ -110,12 +110,20 @@ void panel_test_pattern(uint32_t gpio_no_1, uint32_t gpio_no_2)
         data[i] = (uint16_t)(i & 3);
     }
 
+    // Enough to fill all DMA buffers: # buffers * # samples * # channels.
+    static uint16_t silence[N_DMA_BUFS * DMA_BUF_LEN * 2] = { 0 };
+
     while (true) {
         printf("%d\n", iter++);
 
         size_t written;
         i2s_write(0, data, sizeof data, &written, 100);
         assert(written == sizeof data);
+
+        // Workaround for broken tx_desc_auto_clear: fill all DMA buffers with
+        // silence.
+        i2s_write(0, silence, sizeof silence, &written, 100);
+        assert(written == sizeof silence);
 
         vTaskDelay(ticks_pause);
     }
