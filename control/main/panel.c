@@ -176,13 +176,13 @@ static volatile uint8_t *get_dma_buffer(void)
     lldesc_t *prev_desc = (lldesc_t *)I2S0.out_eof_des_addr;
     lldesc_t *desc;
 
-    // Wait for the next DMA buffer to finish.
+    // Wait for the next DMA descriptor to finish.
 
     do {
         desc = (lldesc_t *)I2S0.out_eof_des_addr;
     } while (desc == prev_desc);
 
-    // Return the DMA buffer that just finished.
+    // Return the DMA buffer of the DMA descriptor that just finished.
     return desc->buf;
 }
 
