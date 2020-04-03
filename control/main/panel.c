@@ -55,11 +55,7 @@ static void v_memset(volatile void *to, uint8_t val, size_t sz);
 
 // --- API ---------------------------------------------------------------------
 
-void panel_init(void)
-{
-}
-
-void panel_test_pattern(uint32_t gpio_no_1, uint32_t gpio_no_2)
+void panel_init(uint32_t gpio_no_1, uint32_t gpio_no_2)
 {
     // Completely normal GPIO setup.
 
@@ -105,7 +101,10 @@ void panel_test_pattern(uint32_t gpio_no_1, uint32_t gpio_no_2)
 
     // Write directly to I2S_CONF2_REG to enable LCD mode.
     I2S0.conf2.lcd_en = 1;
+}
 
+void panel_test_pattern(void)
+{
     // Create 1 ms's worth of output (= 10000 samples). Make gpio_no_1 flip
     // every 100 ns, gpio_no_2 every 200 ns.
 

@@ -28,7 +28,7 @@
 // --- API ---------------------------------------------------------------------
 
 // Initialize.
-void panel_init(void);
+void panel_init(uint32_t gpio_no_1, uint32_t gpio_no_2);
 
 // Generate test pattern.
-void panel_test_pattern(uint32_t gpio_no_1, uint32_t gpio_no_2);
+void panel_test_pattern(void);

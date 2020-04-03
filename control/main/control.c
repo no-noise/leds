@@ -44,9 +44,9 @@ void app_main(void)
     printf("no noise controller\n");
 
     util_init();
-    panel_init();
+    panel_init(GPIO_NO_1, GPIO_NO_2);
 
-    panel_test_pattern(GPIO_NO_1, GPIO_NO_2);
+    panel_test_pattern();
 }
 
 #pragma GCC diagnostic pop
