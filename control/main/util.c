@@ -19,11 +19,12 @@
 
 #include <util.h>
 
+#include <freertos/FreeRTOS.h> // pre 4.1, IDF headers depend on this
+
 #include <assert.h>
 #include <esp_spi_flash.h>
 #include <esp_system.h>
 #include <esp32/clk.h>
-#include <freertos/FreeRTOS.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>

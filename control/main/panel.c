@@ -19,13 +19,14 @@
 
 #include <panel.h>
 
+#include <freertos/FreeRTOS.h> // pre 4.1, IDF headers depend on these two
+#include <freertos/task.h>
+
 #include <assert.h>
 #include <driver/gpio.h>
 #include <driver/i2s.h>
 #include <esp32/rom/gpio.h>
 #include <esp32/rom/lldesc.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 #include <soc/gpio_sig_map.h>
 #include <soc/i2s_struct.h>
 #include <stdbool.h>
