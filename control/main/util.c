@@ -22,12 +22,13 @@
 #include <freertos/FreeRTOS.h> // pre 4.1, IDF headers depend on this
 
 #include <assert.h>
+#include <esp_err.h>
+#include <esp_log.h>
 #include <esp_spi_flash.h>
 #include <esp_system.h>
 #include <esp32/clk.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
 
 #include <warnings.h>
 
@@ -75,6 +76,11 @@ void util_leave_critical(void)
     portENABLE_INTERRUPTS();
 }
 
+void util_esp_error(const char *func, esp_err_t err)
+{
+    ESP_LOGE("NN", "%s() failed: %d (%s)", func, err, esp_err_to_name(err));
+}
+
 // --- Helpers -----------------------------------------------------------------
 
 static void output_banner(const esp_chip_info_t *info)
@@ -89,7 +95,7 @@ static void output_banner(const esp_chip_info_t *info)
 
     size_t heap_sz = esp_get_free_heap_size();
 
-    printf("%s rev %d cores %d freq %d flash-%s %zu heap %zu\n",
+    ESP_LOGI("NN", "%s rev %d cores %d freq %d flash-%s %zu heap %zu",
             model, revision, n_cores, g_freq_mhz, flash_type, flash_sz,
             heap_sz);
 }

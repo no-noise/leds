@@ -25,6 +25,7 @@
 #include <assert.h>
 #include <driver/gpio.h>
 #include <driver/i2s.h>
+#include <esp_log.h>
 #include <esp32/rom/gpio.h>
 #include <esp32/rom/lldesc.h>
 #include <soc/gpio_sig_map.h>
@@ -33,6 +34,7 @@
 #include <stdint.h>
 
 #include <util.h>
+
 #include <warnings.h>
 
 // --- Types and constants -----------------------------------------------------
@@ -82,7 +84,7 @@ void panel_init(uint32_t gpio_no_1, uint32_t gpio_no_2)
         .sample_rate = SAMPLE_RATE / 16,
         .bits_per_sample = 16,
         .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
-        .communication_format = I2S_COMM_FORMAT_PCM,
+        .communication_format = I2S_COMM_FORMAT_STAND_PCM_SHORT,
         .intr_alloc_flags = 0,
         .dma_buf_count = N_DMA_BUFS,
         .dma_buf_len = DMA_BUF_LEN,
@@ -121,7 +123,7 @@ void panel_test_pattern(void)
     uint32_t iter = 0;
 
     while (true) {
-        printf("%d\n", iter++);
+        ESP_LOGI("NN", "%d", iter++);
 
         write_data(samples, sizeof samples);
 

@@ -3,6 +3,7 @@ idf_component_register(
         "control.c"
         "panel.c"
         "util.c"
+        "wifi.c"
     INCLUDE_DIRS
         "."
 )

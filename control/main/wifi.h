@@ -1,4 +1,4 @@
-// control.c
+// wifi.h
 //
 // Copyright (C) 2020 by the contributors
 //
@@ -17,48 +17,13 @@
 
 // --- Includes ----------------------------------------------------------------
 
-#include <esp_event.h>
-#include <esp_log.h>
-#include <nvs_flash.h>
-
-#include <panel.h>
-#include <util.h>
-#include <wifi.h>
-
-#include <warnings.h>
-
 // --- Types and constants -----------------------------------------------------
-
-#define GPIO_NO_1 4
-#define GPIO_NO_2 5
 
 // --- Macros and inline functions ---------------------------------------------
 
 // --- Globals -----------------------------------------------------------------
 
-// --- Helper declarations -----------------------------------------------------
-
 // --- API ---------------------------------------------------------------------
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmissing-declarations"
-
-void app_main(void)
-{
-    ESP_LOGI("NN", "no noise controller");
-
-    util_init();
-
-    util_never_fails(nvs_flash_init);
-    util_never_fails(esp_event_loop_create_default);
-    util_never_fails(esp_netif_init);
-
-    panel_init(GPIO_NO_1, GPIO_NO_2);
-    wifi_init();
-
-    panel_test_pattern();
-}
-
-#pragma GCC diagnostic pop
-
-// --- Helpers -----------------------------------------------------------------
+// Initialize.
+void wifi_init(void);

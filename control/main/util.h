@@ -17,7 +17,9 @@
 
 // --- Includes ----------------------------------------------------------------
 
+#include <esp_err.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <xtensa/core-macros.h>
 
 // --- Types and constants -----------------------------------------------------
@@ -54,3 +56,24 @@ static inline void util_delay_in_critical(uint32_t start, uint32_t cycles)
         // do nothing
     }
 }
+
+void util_esp_error(const char *func, esp_err_t err);
+
+#define util_failed(func, ...) ({      \
+    esp_err_t err = func(__VA_ARGS__); \
+                                       \
+    if (err != ESP_OK) {               \
+        util_esp_error(#func, err);    \
+    }                                  \
+                                       \
+    err != ESP_OK;                     \
+})
+
+#define util_never_fails(func, ...) do { \
+    esp_err_t err = func(__VA_ARGS__);   \
+                                         \
+    if (err != ESP_OK) {                 \
+        util_esp_error(#func, err);      \
+        abort();                         \
+    }                                    \
+} while(0);
