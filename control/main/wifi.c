@@ -64,8 +64,6 @@ static esp_netif_t *g_station_if, *g_network_if;
 // --- Helper declarations -----------------------------------------------------
 
 static bool try_init(void);
-static bool assign_addrs(void);
-static uint32_t mac_to_ip(const uint8_t *mac);
 static bool start(void);
 static void stop(void);
 static void event_handler(void *arg, esp_event_base_t base, int32_t event,
@@ -83,6 +81,8 @@ static bool run_scan(void);
 static bool network_exists(void);
 static bool connect(void);
 static bool create_network(void);
+static bool assign_addr(wifi_interface_t wifi_if, esp_netif_t *net_if);
+static uint32_t mac_to_ip(const uint8_t *mac);
 
 // --- API ---------------------------------------------------------------------
 
@@ -107,8 +107,6 @@ static bool try_init(void)
     if (util_failed(esp_wifi_init, &conf)) {
         goto done_0;
     }
-
-    assign_addrs();
 
     if (util_failed(esp_event_handler_register, WIFI_EVENT, ESP_EVENT_ANY_ID,
                 event_handler, NULL)) {
@@ -155,54 +153,6 @@ done_1:
 
 done_0:
     return false;
-}
-
-static bool assign_addrs(void)
-{
-    util_never_fails(esp_netif_dhcpc_stop, g_station_if);
-    util_never_fails(esp_netif_dhcps_stop, g_network_if);
-
-    uint8_t mac[6];
-    uint32_t tmp; // esp_netif_htonl() evaluates its argument four times
-
-    esp_netif_ip_info_t ip_info = {
-        .netmask = { .addr = esp_netif_htonl(0xff000000u) },
-        .gw = { .addr = esp_netif_htonl(0x00000000u) }
-    };
-
-    util_never_fails(esp_wifi_get_mac, WIFI_IF_STA, mac);
-    tmp = mac_to_ip(mac);
-    ip_info.ip.addr = esp_netif_htonl(tmp);
-
-    if (util_failed(esp_netif_set_ip_info, g_station_if, &ip_info)) {
-        return false;
-    }
-
-    util_never_fails(esp_wifi_get_mac, WIFI_IF_AP, mac);
-    tmp = mac_to_ip(mac);
-    ip_info.ip.addr = esp_netif_htonl(tmp);
-
-    if (util_failed(esp_netif_set_ip_info, g_network_if, &ip_info)) {
-        return false;
-    }
-
-    return true;
-}
-
-static uint32_t mac_to_ip(const uint8_t *mac)
-{
-    uint32_t ip[4];
-
-    ip[0] = 10;
-    ip[1] = mac[0] ^ mac[3];
-    ip[2] = mac[1] ^ mac[4];
-    ip[3] = mac[2] ^ mac[5];
-
-    ESP_LOGI("NN", "MAC %02x:%02x:%02x:%02x:%02x:%02x -> IP %u.%u.%u.%u",
-            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
-            ip[0], ip[1], ip[2], ip[3]);
-
-    return ip[0] << 24 | ip[1] << 16 | ip[2] << 8 | ip[3];
 }
 
 static bool start(void)
@@ -427,6 +377,13 @@ static bool connect(void)
         return false;
     }
 
+    util_never_fails(esp_netif_dhcpc_stop, g_station_if);
+
+    if (!assign_addr(WIFI_IF_STA, g_station_if)) {
+        stop();
+        return false;
+    }
+
     if (util_failed(esp_wifi_connect)) {
         stop();
         return false;
@@ -463,5 +420,49 @@ static bool create_network(void)
         return false;
     }
 
+    util_never_fails(esp_netif_dhcps_stop, g_network_if);
+
+    if (!assign_addr(WIFI_IF_AP, g_network_if)) {
+        stop();
+        return false;
+    }
+
     return true;
+}
+
+static bool assign_addr(wifi_interface_t wifi_if, esp_netif_t *net_if)
+{
+    uint8_t mac[6];
+    util_never_fails(esp_wifi_get_mac, wifi_if, mac);
+
+    // esp_netif_htonl() evaluates its argument four times
+    uint32_t tmp = mac_to_ip(mac);
+
+    esp_netif_ip_info_t ip_info = {
+        .ip      = { .addr = esp_netif_htonl(tmp) },
+        .netmask = { .addr = esp_netif_htonl(0xff000000u) },
+        .gw      = { .addr = esp_netif_htonl(0x00000000u) }
+    };
+
+    if (util_failed(esp_netif_set_ip_info, net_if, &ip_info)) {
+        return false;
+    }
+
+    return true;
+}
+
+static uint32_t mac_to_ip(const uint8_t *mac)
+{
+    uint32_t ip[4];
+
+    ip[0] = 10;
+    ip[1] = mac[0] ^ mac[3];
+    ip[2] = mac[1] ^ mac[4];
+    ip[3] = mac[2] ^ mac[5];
+
+    ESP_LOGI("NN", "MAC %02x:%02x:%02x:%02x:%02x:%02x -> IP %u.%u.%u.%u",
+            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
+            ip[0], ip[1], ip[2], ip[3]);
+
+    return ip[0] << 24 | ip[1] << 16 | ip[2] << 8 | ip[3];
 }
