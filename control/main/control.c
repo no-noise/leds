@@ -51,7 +51,6 @@ void app_main(void)
 
     util_never_fails(nvs_flash_init);
     util_never_fails(esp_event_loop_create_default);
-    util_never_fails(esp_netif_init);
 
     panel_init(GPIO_NO_1, GPIO_NO_2);
     wifi_init();
